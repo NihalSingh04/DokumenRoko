@@ -122,6 +122,20 @@ details {
     font-weight: 600;
 }
 
+/* ---------- SOURCES SECTION ---------- */
+
+details summary {
+    color: #30364F !important;
+    font-weight: 600;
+}
+
+details p, 
+details li, 
+details span, 
+details div {
+    color: #30364F !important;
+}
+
 /* ---------- PAGE SPACING ---------- */
 
 .block-container {
