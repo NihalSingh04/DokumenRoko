@@ -2,8 +2,7 @@
 
 import os
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
-import os
+from langchain_groq import ChatGroq
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # Load environment variables
@@ -13,12 +12,11 @@ load_dotenv()
 class Config:
     """Configuration class for RAG system"""
 
-
     # API Key
     GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
     # LLM Configuration
-    LLM_MODEL = "llama3-70b-8192"
+    LLM_MODEL = "llama-3.3-70b-versatile"
 
     # Embedding Model
     EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
@@ -35,11 +33,10 @@ class Config:
 
     @classmethod
     def get_llm(cls):
-        """Initialize Groq LLM via OpenAI-compatible API"""
-        return ChatOpenAI(
-            model=cls.LLM_MODEL,
-            base_url="https://api.groq.com/openai/v1",
-            api_key=cls.GROQ_API_KEY,
+        """Initialize Groq LLM"""
+        return ChatGroq(
+            groq_api_key=cls.GROQ_API_KEY,
+            model_name=cls.LLM_MODEL,
             temperature=0,
         )
 
