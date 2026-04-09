@@ -73,41 +73,34 @@ class GraphBuilder:
         self,
         question: str,
         history: list,
-        selected_documents=None
+        selected_documents=None,
     ) -> dict:
-
         if self.graph is None:
-
             self.build()
 
-        # -------------------------
-        # Initial State
-        # -------------------------
+        try:
+            initial_state = RAGState(
+                question=question,
+                chat_history=history,
+                selected_documents=selected_documents,
+            )
 
-        initial_state = RAGState(
+            result = self.graph.invoke(initial_state)
 
-            question=question,
+            return {
+                "answer": result.get("answer", ""),
+                "documents": result.get("retrieved_docs", []),
+                "history": result.get("chat_history", []),
+            }
 
-            chat_history=history,
+        except Exception as e:
+            print("GRAPH ERROR:", str(e))
 
-            # NEW FIELD
-            selected_documents=selected_documents
-        )
-
-        result = self.graph.invoke(
-            initial_state
-        )
-
-        return {
-
-            "answer": result["answer"],
-
-            "documents": result["retrieved_docs"],
-
-            "history": result["chat_history"]
-
-        }
-
+            return {
+                "answer": f"Error: {str(e)}",
+                "documents": [],
+                "history": history,
+            }
 
 
 

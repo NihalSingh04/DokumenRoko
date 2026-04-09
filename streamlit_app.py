@@ -29,14 +29,10 @@ st.markdown(
     """
     <style>
 
-    /* Background */
-
     [data-testid="stAppViewContainer"] {
         background: linear-gradient(180deg, #2f344a 0%, #262b3f 100%);
         color: #f4f6fb;
     }
-
-    /* Title */
 
     h1 {
         text-align: center;
@@ -45,39 +41,21 @@ st.markdown(
         margin-bottom: 0.2rem;
     }
 
-    /* Card containers */
-
-    .card {
-        background-color: #3a405c;
-        padding: 16px;
-        border-radius: 14px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-        margin-bottom: 12px;
-    }
-
-    /* Chat messages */
-
     [data-testid="stChatMessage"] {
         padding: 14px;
         border-radius: 12px;
         font-size: 15px;
     }
 
-    /* User */
-
     [data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-user"]) {
         background-color: #f4f6fb;
         color: #1f2435;
     }
 
-    /* Assistant */
-
     [data-testid="stChatMessage"]:has(div[data-testid="chatAvatarIcon-assistant"]) {
         background-color: #dfe6ff;
         color: #1f2435;
     }
-
-    /* Chat input */
 
     [data-testid="stChatInput"] textarea {
         background-color: #4c5575 !important;
@@ -86,8 +64,6 @@ st.markdown(
         border: none;
     }
 
-    /* Buttons */
-
     .stButton button {
         background-color: #6c7bff;
         color: white;
@@ -95,8 +71,6 @@ st.markdown(
         border: none;
         font-weight: 600;
     }
-
-    /* Expander */
 
     details {
         background-color: #eef1ff;
@@ -221,29 +195,37 @@ def main():
                     with open(file_path, "wb") as f:
                         f.write(uploaded_file.getbuffer())
 
-                    if filename.endswith(".pdf"):
-                        docs = processor.load_from_pdf(file_path)
-                    else:
-                        docs = processor.load_from_txt(file_path)
+                    try:
 
-                    chunks = processor.split_documents(docs)
+                        if filename.endswith(".pdf"):
+                            docs = processor.load_from_pdf(file_path)
+                        else:
+                            docs = processor.load_from_txt(file_path)
 
-                    all_chunks.extend(chunks)
+                        chunks = processor.split_documents(docs)
 
-                st.session_state.rag_system = build_rag_from_docs(
-                    all_chunks
-                )
+                        all_chunks.extend(chunks)
 
-                st.session_state.chat_history = []
-                st.session_state.messages = []
+                    except Exception as e:
 
-                st.session_state.doc_loaded = True
+                        st.error(f"Failed to process {filename}: {str(e)}")
 
-            st.success("Documents indexed successfully")
+                if all_chunks:
 
-            st.info(
-                f"Total chunks indexed: {len(all_chunks)}"
-            )
+                    st.session_state.rag_system = build_rag_from_docs(
+                        all_chunks
+                    )
+
+                    st.session_state.chat_history = []
+                    st.session_state.messages = []
+
+                    st.session_state.doc_loaded = True
+
+                    st.success("Documents indexed successfully")
+
+                    st.info(
+                        f"Total chunks indexed: {len(all_chunks)}"
+                    )
 
         st.markdown("---")
 
@@ -261,7 +243,8 @@ def main():
 
                 checked = st.checkbox(
                     doc,
-                    value=True
+                    value=True,
+                    key=f"checkbox_{doc}"
                 )
 
                 if checked:
@@ -270,8 +253,6 @@ def main():
             st.session_state.selected_documents = selected_docs
 
             st.markdown("---")
-
-            # Status indicators
 
             st.metric(
                 "Documents Loaded",
@@ -314,10 +295,7 @@ def main():
 
             if st.session_state.rag_system is None:
 
-                st.warning(
-                    "Upload documents first."
-                )
-
+                st.warning("Upload documents first.")
                 return
 
             st.session_state.messages.append({
@@ -332,18 +310,29 @@ def main():
 
                 start_time = time.time()
 
-                result = st.session_state.rag_system.run(
-                    question,
-                    st.session_state.chat_history,
-                    selected_documents=st.session_state.selected_documents
-                )
+                try:
+
+                    result = st.session_state.rag_system.run(
+                        question,
+                        st.session_state.chat_history,
+                        selected_documents=st.session_state.selected_documents
+                    )
+
+                except Exception as e:
+
+                    st.error(f"System error: {str(e)}")
+
+                    return
 
                 elapsed = time.time() - start_time
 
-                answer = result["answer"]
-                documents = result["documents"]
+                answer = result.get("answer", "No response generated")
+                documents = result.get("documents", [])
 
-                st.session_state.chat_history = result["history"]
+                st.session_state.chat_history = result.get(
+                    "history",
+                    st.session_state.chat_history
+                )
 
             with st.chat_message("assistant"):
 
@@ -373,9 +362,7 @@ def main():
 
                     else:
 
-                        st.write(
-                            "No sources available"
-                        )
+                        st.write("No sources available")
 
                 st.caption(
                     f"Response time: {elapsed:.2f} sec"
