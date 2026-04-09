@@ -105,25 +105,66 @@ Rewritten Query:
 
     def generate_answer(
         self,
-        state: RAGState
+        state: RAGState,
     ) -> RAGState:
+        docs = state.retrieved_docs or []
 
-        docs = (
-            state.retrieved_docs
-            or []
-        )
+        if not docs:
+            return RAGState(
+                question=state.question,
+                retrieved_docs=[],
+                answer="No relevant information found in the selected documents.",
+                chat_history=state.chat_history,
+                selected_documents=state.selected_documents,
+            )
 
-        context = "\n\n".join(
-            doc.page_content
-            for doc in docs
-        )
+        # -------------------------
+        # Build context
+        # -------------------------
 
-        history = "\n".join(
-            state.chat_history[-4:]
-        )
+        context = "\n\n".join(doc.page_content for doc in docs)
+
+        history = "\n".join(state.chat_history[-4:])
+
+        question = state.question
+
+        # -------------------------
+        # Detect length instruction
+        # -------------------------
+
+        length_instruction = ""
+
+        if "lines" in question.lower():
+
+            length_instruction = """
+IMPORTANT:
+- If the user asks for a specific number of lines, you MUST produce that many lines.
+- Do NOT shorten the explanation.
+- Provide a detailed explanation.
+"""
+
+        if "brief" in question.lower():
+
+            length_instruction = """
+IMPORTANT:
+- Provide a short concise answer.
+"""
+
+        if "detail" in question.lower():
+
+            length_instruction = """
+IMPORTANT:
+- Provide a detailed explanation with examples.
+"""
+
+        # -------------------------
+        # Final prompt
+        # -------------------------
 
         prompt = f"""
 You are a helpful AI assistant answering questions about documents.
+
+Use ONLY the provided context.
 
 Conversation History:
 {history}
@@ -131,39 +172,37 @@ Conversation History:
 Context:
 {context}
 
-Current Question:
-{state.question}
+User Question:
+{question}
 
-Answer clearly using the context.
+{length_instruction}
+
+Rules:
+
+- Follow the user's instruction about length.
+- If the user asks for 50 lines, produce approximately 50 lines.
+- Be informative and structured.
+- Do not say you lack context if context exists.
+- Do not hallucinate outside the documents.
+
+Answer:
 """
 
-        response = self.llm.invoke(
-            prompt
-        )
-
+        response = self.llm.invoke(prompt)
         answer = response.content
 
-        updated_history = (
-            state.chat_history
-            + [
-                f"User: {state.question}",
-                f"Assistant: {answer}"
-            ]
-        )
+        updated_history = state.chat_history + [
+            f"User: {question}",
+            f"Assistant: {answer}",
+        ]
 
         return RAGState(
-
-            question=state.question,
-
+            question=question,
             rewritten_query=state.rewritten_query,
-
             retrieved_docs=docs,
-
             answer=answer,
-
             chat_history=updated_history,
-
-            selected_documents=state.selected_documents
+            selected_documents=state.selected_documents,
         )
 
 
